@@ -1,0 +1,23 @@
+[color]
+  ui = auto
+  diff = auto
+[alias]
+  co = checkout
+  lg = log -10 --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+  ci = commit
+  st = status
+  fu = fetch upstream
+  pru = pull --rebase upstream master
+  ct = commit
+  cm = commit -m
+  cne = commit --no-edit
+  ca = commit --amend
+  cane = commit --amend --no-edit
+  rc = rebase --continue
+  ra = rebase --abort
+  bl = branch -v
+  rlg = reflog -20
+  ss = status -s
+  pus = pull upstream staging
+  phus = push upstream staging
+  d = diff --color-words
