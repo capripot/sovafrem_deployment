@@ -4,7 +4,7 @@
 #
 # NOTE env -i to setup environments variables for Git
 
-HOOK_WORK_TREE = { 
+HOOK_WORK_TREE = {
   :staging => "#{ENV['HOME']}/marctanguy/staging.sovafrem.com",
   :mobile => "#{ENV['HOME']}/marctanguy/7.sovafrem.com",
   :master  => "#{ENV['HOME']}/www"
@@ -17,11 +17,11 @@ ARTISAN_EXEC="#{PHP_EXEC} artisan"
 
 # for coloring the terminal output
 class String
-  
+
   def colorize(color_code)
     "\e[#{color_code}m#{self}\e[0m"
   end
-  
+
   def red
     colorize(31)
   end
@@ -37,7 +37,7 @@ class String
   def pink
     colorize(35)
   end
-  
+
 end
 
 def output msg
@@ -52,32 +52,36 @@ return unless [:staging, :master].include?(branch)
 Dir.chdir(HOOK_WORK_TREE[branch]) do
   case(branch)
   when :staging
-    output "Reset staging to staging branch".red
-    system "env -i git reset --hard origin/staging"
-    output "Pull staging".red
-    system "env -i git fetch origin"
-    system "env -i git pull origin staging"
+    output "Reset staging to master branch".red
+    system "env -i git fetch local"
+    system "env -i git reset --hard local/master"
+    output "Pull last staging commit".red
+    system "env -i git pull local staging"
     output "Install Composer packages".red
     system "#{COMPOSER_EXEC} install"
     output "Apply migrations".red
     system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=staging"
     output "Done! 🍺".green
   when :mobile
+    output "Enter maintenance mode".pink
+    system "#{ARTISAN_EXEC} down"
     output "Reset 7 to mobile branch".red
-    system "env -i git reset --hard origin/mobile"
+    system "env -i git fetch local"
+    system "env -i git reset --hard local/mobile"
     output "Pull mobile".red
-    system "env -i git fetch origin"
-    system "env -i git pull origin mobile"
+    system "env -i git pull local mobile"
     output "Install composer packages".red
     system "#{COMPOSER_EXEC} install"
-    output "Apply migratiobs".red
+    output "Apply migrations".red
     system "#{ARTISAN_EXEC} migrate"
+    output "End maintenance mode".pink
+    system "#{ARTISAN_EXEC} up"
     output "Done! 🍺".green
   when :master
     output "Enter maintenance mode".pink
     system "touch _MAINTENANCE_MODE_ACTIVE"
     output "Pull master".red
-    system "env -i git pull origin master"
+    system "env -i git pull local master"
     output "Install Composer packages".red
     system "#{COMPOSER_EXEC} install"
     output "Apply migrations".red
