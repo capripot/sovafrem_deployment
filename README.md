@@ -1,5 +1,4 @@
-Deployment of Sovafrem platform
--------------------------------
+# Deployment of Sovafrem platform
 
 OVH hosting doesn't have access to internet directly. Internet access is only allowed through PHP.
 
@@ -21,3 +20,7 @@ To create a bare repo: e.g. `git init --bare ~/marctanguy/sovafrem.git`
 To clone a local repo (files are hard-linked to save space): e.g. `git -l ~/marctanguy/sovafrem_repo 7.sovafrem.com`
 
 To add repo as a remote: `git remote add staging sovafrem@ftp.cluster015.ovh.net:marctanguy/sovafrem.git`
+
+# Backup DB
+
+In `db_backup` folder, you'll find the two script to keep a daily snapshot of the DB. Setup a cron task in OVH to execute the the script `backup.php`
