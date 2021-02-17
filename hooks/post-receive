@@ -1,6 +1,6 @@
 #!/usr/local/bin/ruby
 
-# Hook by Capripot 2015-2017
+# Hook by Capripot 2015-2021
 #
 # NOTE env -i to setup environments variables for Git
 
@@ -58,7 +58,7 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     output "Pull last staging commit".red
     system "env -i git pull local staging"
     output "Install Composer packages".red
-    system "#{COMPOSER_EXEC} install"
+    system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
     system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=staging"
     output "Done! 🍺".green
@@ -71,7 +71,7 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     output "Pull mobile".red
     system "env -i git pull local mobile"
     output "Install composer packages".red
-    system "#{COMPOSER_EXEC} install"
+    system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
     system "#{ARTISAN_EXEC} migrate"
     output "End maintenance mode".pink
@@ -83,7 +83,7 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     output "Pull master".red
     system "env -i git pull local master"
     output "Install Composer packages".red
-    system "#{COMPOSER_EXEC} install"
+    system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
     system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=production"
     output "Done! 🍺".green
