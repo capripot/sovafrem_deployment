@@ -7,17 +7,17 @@
 HOOK_WORK_TREE = {
   :staging => "#{ENV['HOME']}/marctanguy/staging.sovafrem.com",
   :mobile => "#{ENV['HOME']}/marctanguy/7.sovafrem.com",
-  :master  => "#{ENV['HOME']}/www"
+  :master => "#{ENV['HOME']}/www"
 }
-#HOOK_GIT_DIR = "#{ENV['HOME']}/marctanguy/staging.sovafrem.com/.git"
-PHP_EXEC= "/usr/local/php5.6/bin/php -c /usr/local/php5.6/etc/php.ini"
-COMPOSER_EXEC="#{PHP_EXEC} #{ENV['HOME']}/opt/bin/composer.phar"
-RUCKUS_VENDOR_EXEC="#{PHP_EXEC} vendor/ruckusing/ruckusing-migrations/ruckus.php"
-ARTISAN_EXEC="#{PHP_EXEC} artisan"
+
+# HOOK_GIT_DIR = "#{ENV['HOME']}/marctanguy/staging.sovafrem.com/.git"
+PHP_EXEC = "/usr/local/php5.6/bin/php -c /usr/local/php5.6/etc/php.ini"
+COMPOSER_EXEC = "#{PHP_EXEC} #{ENV['HOME']}/opt/bin/composer.phar"
+RUCKUS_VENDOR_EXEC = "#{PHP_EXEC} vendor/ruckusing/ruckusing-migrations/ruckus.php"
+ARTISAN_EXEC = "#{PHP_EXEC} artisan"
 
 # for coloring the terminal output
 class String
-
   def colorize(color_code)
     "\e[#{color_code}m#{self}\e[0m"
   end
@@ -37,11 +37,17 @@ class String
   def pink
     colorize(35)
   end
-
 end
 
 def output msg
   puts "[#{Time.now.strftime("%x %X").yellow}] #{msg}"
+end
+
+def git_sha1
+  output "Adding git SHA1 to project".red
+  sha1 = system "env -i git rev-parse --short HEAD"
+  phpfile = "config/gitsha1.inc.php"
+  system "echo '<?php return \"#{sha1}\";' > #{phpfile}"
 end
 
 input = STDIN.read.split(' ')
@@ -86,6 +92,7 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
     system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=production"
+    git_sha1
     output "Done! 🍺".green
     output "End maintenance mode".pink
     system "rm _MAINTENANCE_MODE_ACTIVE"
