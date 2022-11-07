@@ -1,6 +1,6 @@
 #!/usr/local/bin/ruby
 
-# Hook by Capripot 2015-2021
+# Git Hook by Capripot 2015-2022
 #
 # NOTE env -i to setup environments variables for Git
 
@@ -45,9 +45,10 @@ end
 
 def git_sha1
   output "Adding git SHA1 to project".red
-  sha1 = system "env -i git rev-parse --short HEAD"
-  phpfile = "config/gitsha1.inc.php"
-  system "echo '<?php return \"#{sha1}\";' > #{phpfile}"
+  sha1 = `env -i git rev-parse --short HEAD`.strip
+  phpfile = "config/auto_version.inc.php"
+  system "echo '<?php return array(\"sha1\" => \"#{sha1}\", \"time\" => #{Time.now.to_i});' > #{phpfile}"
+  output "#{sha1} written in #{phpfile}"
 end
 
 input = STDIN.read.split(' ')
@@ -67,7 +68,8 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
     system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=staging"
-    output "Done! 🍺".green
+    git_sha1
+    output "Done! 🎉".green
   when :mobile
     output "Enter maintenance mode".pink
     system "#{ARTISAN_EXEC} down"
@@ -82,7 +84,7 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     system "#{ARTISAN_EXEC} migrate"
     output "End maintenance mode".pink
     system "#{ARTISAN_EXEC} up"
-    output "Done! 🍺".green
+    output "Done! 🎉".green
   when :master
     output "Enter maintenance mode".pink
     system "touch _MAINTENANCE_MODE_ACTIVE"
@@ -93,7 +95,7 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     output "Apply migrations".red
     system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=production"
     git_sha1
-    output "Done! 🍺".green
+    output "Done! 🎉".green
     output "End maintenance mode".pink
     system "rm _MAINTENANCE_MODE_ACTIVE"
   end
