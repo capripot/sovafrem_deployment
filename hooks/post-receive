@@ -1,22 +1,14 @@
 #!/usr/local/bin/ruby
+# frozen_string_literal: true
 
-# Git Hook by Capripot 2015-2022
+# Git Hook by Capripot 2015-2025
 #
-# NOTE env -i to setup environments variables for Git
-
-HOOK_WORK_TREE = {
-  :staging => "#{ENV['HOME']}/marctanguy/staging.sovafrem.com",
-  :mobile => "#{ENV['HOME']}/marctanguy/7.sovafrem.com",
-  :master => "#{ENV['HOME']}/www"
-}
-
-# HOOK_GIT_DIR = "#{ENV['HOME']}/marctanguy/staging.sovafrem.com/.git"
-PHP_EXEC = "/usr/local/php5.6/bin/php -c /usr/local/php5.6/etc/php.ini"
-COMPOSER_EXEC = "#{PHP_EXEC} #{ENV['HOME']}/opt/bin/composer.phar"
-RUCKUS_VENDOR_EXEC = "#{PHP_EXEC} vendor/ruckusing/ruckusing-migrations/ruckus.php"
-ARTISAN_EXEC = "#{PHP_EXEC} artisan"
+# NOTE: env -i to setup environments variables for Git
 
 # for coloring the terminal output
+
+require "json"
+
 class String
   def colorize(color_code)
     "\e[#{color_code}m#{self}\e[0m"
@@ -39,64 +31,105 @@ class String
   end
 end
 
-def output msg
-  puts "[#{Time.now.strftime("%x %X").yellow}] #{msg}"
-end
+module GitHook
+  class PostReceive
+    HOOK_WORK_TREE = {
+      staging: "#{ENV['HOME']}/marctanguy/staging.sovafrem.com",
+      main: "#{ENV['HOME']}/www"
+    }.freeze
+    BRANCH_TO_ENV = {
+      staging: "staging",
+      main: "production"
+    }.freeze
+    # HOOK_GIT_DIR = "#{ENV['HOME']}/marctanguy/staging.sovafrem.com/.git"
+    PHP_EXEC = "/usr/local/php8.2/bin/php -c /usr/local/php8.2/etc/php.ini"
+    COMPOSER_EXEC = "#{PHP_EXEC} #{ENV['HOME']}/opt/bin/composer.phar"
+    RUCKUS_VENDOR_EXEC = "#{PHP_EXEC} vendor/ruckusing/ruckusing-migrations/ruckus.php"
+    ARTISAN_EXEC = "#{PHP_EXEC} artisan"
 
-def git_sha1
-  output "Adding git SHA1 to project".red
-  sha1 = `env -i git rev-parse --short HEAD`.strip
-  phpfile = "config/auto_version.inc.php"
-  system "echo '<?php return array(\"sha1\" => \"#{sha1}\", \"time\" => #{Time.now.to_i});' > #{phpfile}"
-  output "#{sha1} written in #{phpfile}"
-end
+    VERSION_PHPFILE = "config/auto_version.inc.php"
+    ROLLBAR_DEPLOY_ENDPOINT = "https://api.rollbar.com/api/1/deploy"
 
-input = STDIN.read.split(' ')
-branch = input[2].split('/').last.to_sym if input[2]
+    def call
+      input = STDIN.read.split(' ')
+      branch = input[2].split('/').last.to_sym if input[2]
+      return unless HOOK_WORK_TREE.keys.include?(branch)
 
-return unless [:staging, :master].include?(branch)
+      Dir.chdir(HOOK_WORK_TREE[branch]) do
+        update_repo(branch)
+      end
+    end
 
-Dir.chdir(HOOK_WORK_TREE[branch]) do
-  case(branch)
-  when :staging
-    output "Reset staging to master branch".red
-    system "env -i git fetch local"
-    system "env -i git reset --hard local/master"
-    output "Pull last staging commit".red
-    system "env -i git pull local staging"
-    output "Install Composer packages".red
-    system "#{COMPOSER_EXEC} install --no-dev"
-    output "Apply migrations".red
-    system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=staging"
-    git_sha1
-    output "Done! 🎉".green
-  when :mobile
-    output "Enter maintenance mode".pink
-    system "#{ARTISAN_EXEC} down"
-    output "Reset 7 to mobile branch".red
-    system "env -i git fetch local"
-    system "env -i git reset --hard local/mobile"
-    output "Pull mobile".red
-    system "env -i git pull local mobile"
-    output "Install composer packages".red
-    system "#{COMPOSER_EXEC} install --no-dev"
-    output "Apply migrations".red
-    system "#{ARTISAN_EXEC} migrate"
-    output "End maintenance mode".pink
-    system "#{ARTISAN_EXEC} up"
-    output "Done! 🎉".green
-  when :master
-    output "Enter maintenance mode".pink
-    system "touch _MAINTENANCE_MODE_ACTIVE"
-    output "Pull master".red
-    system "env -i git pull local master"
-    output "Install Composer packages".red
-    system "#{COMPOSER_EXEC} install --no-dev"
-    output "Apply migrations".red
-    system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=production"
-    git_sha1
-    output "Done! 🎉".green
-    output "End maintenance mode".pink
-    system "rm _MAINTENANCE_MODE_ACTIVE"
+    private
+
+    def update_repo(branch)
+      output "Enter maintenance mode".pink
+      system "touch _MAINTENANCE_MODE_ACTIVE"
+      output "Fetch local repo".red
+      system "env -i git fetch local"
+      output "Reset to last #{branch} commit".red
+      system "env -i git reset --hard local/#{branch}"
+      output "Install Composer packages".red
+      system "#{COMPOSER_EXEC} install --no-dev"
+      output "Apply migrations".red
+      system "#{RUCKUS_VENDOR_EXEC} db:migrate ENV=#{BRANCH_TO_ENV[branch]}"
+      write_git_sha1_version
+      # connection to internet from OVH is not supported
+      # report_deploy_rollbar(BRANCH_TO_ENV[branch])
+      output "Done! 🎉".green
+      output "End maintenance mode".pink
+      system "rm _MAINTENANCE_MODE_ACTIVE"
+    end
+
+    def output(msg)
+      puts "[#{Time.now.strftime("%x %X").yellow}] #{msg}"
+    end
+
+    def current_version
+      @current_version ||= begin
+        config_file = File.read("config/config.inc.php")
+        config = config_file.match(/SITE_NUMBERED_VERSION', "(?<version>[0-9\.]+)"/)
+        config[:version] if config
+      end
+    end
+
+    def current_sha1
+      @current_sha1 ||= `env -i git rev-parse --short HEAD`.strip
+    end
+
+    def full_version
+      "#{current_version}-#{current_sha1}"
+    end
+
+    def write_git_sha1_version
+      output "Adding git SHA1 to project".red
+      File.open(VERSION_PHPFILE, "w") { |f| f.write("<?php return array(\"sha1\" => \"#{current_sha1}\", \"time\" => #{Time.now.to_i});") }
+      output "#{current_sha1} written in #{VERSION_PHPFILE}"
+    end
+
+    def report_deploy_rollbar(environment)
+      output "Reporting deploy to Rollbar".red
+      secrets_file = File.read("config/secrets.inc.php")
+      secrets = secrets_file.match(/rollbar_token' => '(?<rollbar_token>[0-9a-f]{96})'/)
+      rollbar_token = secrets[:rollbar_token] if secrets
+
+      body = {
+        environment: environment,
+        revision: full_version,
+        status: "succeeded",
+        username: "ronan",
+        local_username: "git-hook"
+      }
+
+      system <<~SH
+        curl -H "X-Rollbar-Access-Token: #{rollbar_token}" \
+          -H "Content-Type: application/json" \
+          -X POST '#{ROLLBAR_DEPLOY_ENDPOINT}' \
+          -d '#{body.to_json}'
+      SH
+      output "#{current_sha1} reported as deployed"
+    end
   end
 end
+
+GitHook::PostReceive.new.call
