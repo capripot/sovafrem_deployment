@@ -1,17 +1,17 @@
 #!/usr/local/bin/ruby
 
-# Git Hook by Capripot 2015-2022
+# Git Hook by Capripot 2015-2024
 #
-# NOTE env -i to setup environments variables for Git
+# NOTE: env -i to setup environments variables for Git
 
 HOOK_WORK_TREE = {
   :staging => "#{ENV['HOME']}/marctanguy/staging.sovafrem.com",
   :mobile => "#{ENV['HOME']}/marctanguy/7.sovafrem.com",
-  :master => "#{ENV['HOME']}/www"
+  :main => "#{ENV['HOME']}/www"
 }
 
 # HOOK_GIT_DIR = "#{ENV['HOME']}/marctanguy/staging.sovafrem.com/.git"
-PHP_EXEC = "/usr/local/php5.6/bin/php -c /usr/local/php5.6/etc/php.ini"
+PHP_EXEC = "/usr/local/php8.2/bin/php -c /usr/local/php8.2/etc/php.ini"
 COMPOSER_EXEC = "#{PHP_EXEC} #{ENV['HOME']}/opt/bin/composer.phar"
 RUCKUS_VENDOR_EXEC = "#{PHP_EXEC} vendor/ruckusing/ruckusing-migrations/ruckus.php"
 ARTISAN_EXEC = "#{PHP_EXEC} artisan"
@@ -54,16 +54,15 @@ end
 input = STDIN.read.split(' ')
 branch = input[2].split('/').last.to_sym if input[2]
 
-return unless [:staging, :master].include?(branch)
+return unless [:staging, :main].include?(branch)
 
 Dir.chdir(HOOK_WORK_TREE[branch]) do
   case(branch)
   when :staging
-    output "Reset staging to master branch".red
+    output "Fetch local repo".red
     system "env -i git fetch local"
-    system "env -i git reset --hard local/master"
-    output "Pull last staging commit".red
-    system "env -i git pull local staging"
+    output "Reset to last staging commit".red
+    system "env -i git reset --hard local/staging"
     output "Install Composer packages".red
     system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
@@ -85,11 +84,13 @@ Dir.chdir(HOOK_WORK_TREE[branch]) do
     output "End maintenance mode".pink
     system "#{ARTISAN_EXEC} up"
     output "Done! 🎉".green
-  when :master
+  when :main
     output "Enter maintenance mode".pink
     system "touch _MAINTENANCE_MODE_ACTIVE"
-    output "Pull master".red
-    system "env -i git pull local master"
+    output "Fetch local repo".red
+    system "env -i git fetch local"
+    output "Reset to last #{branch} commit".red
+    system "env -i git reset --hard local/#{branch}"
     output "Install Composer packages".red
     system "#{COMPOSER_EXEC} install --no-dev"
     output "Apply migrations".red
